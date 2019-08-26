@@ -5,14 +5,16 @@ import android.graphics.Color
 import android.os.Bundle
 import android.support.v7.app.AlertDialog
 import android.support.v7.app.AppCompatActivity
+import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
-import android.support.v7.widget.StaggeredGridLayoutManager
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
+import android.widget.Toast
+import com.example.crowdslang.QuoteWebClient.QuoteResponse
+import es.dmoral.toasty.Toasty
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.quote_form.view.*
-import com.example.crowdslang.QuoteWebClient.QuoteResponse as QuoteResponse
 
 class MainActivity : AppCompatActivity() {
 
@@ -52,25 +54,43 @@ class MainActivity : AppCompatActivity() {
 
         recyclerView = crowd_quotes_rv
         recyclerView.adapter = QuotesListAdapter(quotes, this)
-
-        val layoutManager = StaggeredGridLayoutManager(1, StaggeredGridLayoutManager.VERTICAL)
+        val layoutManager = LinearLayoutManager(this).apply {
+            orientation = LinearLayoutManager.VERTICAL
+        }
         recyclerView.layoutManager = layoutManager
-
-
     }
 
     private fun luckySeven() {
-        val size = recyclerView.adapter?.itemCount
-        val list = (0..size!!).filter { it % 2 == 0 }
+        val size = recyclerView.adapter?.itemCount?.minus(1)
+        val list = (1..size!!).filter { !alreadyWon.contains(it) }
         val random = list.random()
-
-        if (alreadyWon.contains(random)) {
-
+        if (alreadyWon.size != 5) {
+                val manager = recyclerView.layoutManager as LinearLayoutManager
+                if (random >= manager.findFirstCompletelyVisibleItemPosition() && random <= manager.findLastCompletelyVisibleItemPosition()){
+                    changingWinnerColor(random)
+                } else {
+                    recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                        override fun onScrollStateChanged(recyclerView: RecyclerView, state: Int) {
+                            if (state == RecyclerView.SCROLL_STATE_IDLE) {
+                                changingWinnerColor(random)
+                                recyclerView.removeOnScrollListener(this)
+                            }
+                        }
+                    })
+                    recyclerView.smoothScrollToPosition(random)
+                }
         } else {
-            alreadyWon.add(random)
-            val view: View? = recyclerView.layoutManager?.findViewByPosition(random)
-            view?.setBackgroundColor(Color.parseColor("#FFD700"))
+            Toasty.warning(this, "We are out of stickers! ", Toast.LENGTH_LONG, true).show()
         }
+
+    }
+
+    private fun changingWinnerColor(position : Int){
+        alreadyWon.add(position)
+        val view = recyclerView.layoutManager?.findViewByPosition(position)
+            ?.findViewById<TextView>(R.id.who_said)
+        view?.setBackgroundColor(Color.parseColor("#FFD700"))
+        Toasty.success(this@MainActivity, "I have Won! " + view?.text.toString(), Toast.LENGTH_SHORT, true).show()
     }
 
     class AddQuoteDialog(private val context: Context,
